@@ -1,0 +1,24 @@
+{
+  "name": "ozdemir/vuefinder-php",
+  "description": "Vuefinder Php Library.",
+  "license": "MIT",
+  "config": {
+    "bin-dir": "vendor/bin"
+  },
+  "authors": [
+    {
+      "name": "Yusuf Özdemir",
+      "email": "yusuf@ozdemir.be"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Ozdemir\\Vuefinder\\": "src/"
+    }
+  },
+  "require": {
+    "symfony/http-foundation": "^4.2@dev",
+    "league/flysystem": "^1.1@dev"
+  },
+  "minimum-stability": "dev"
+}
