@@ -20,5 +20,5 @@
     "symfony/http-foundation": "^4.2@dev",
     "league/flysystem": "^1.1@dev"
   },
-  "minimum-stability": "dev"
+  "minimum-stability": "stable"
 }
