@@ -115,8 +115,11 @@ class VueFinder
         $path = $this->request->get('path');
         $name = $this->request->get('name');
 
-        return new JsonResponse(['status' => $this->storage->createDir("{$path}/{$name}")]);
+        if (!strpbrk($name, "\\/?%*:|\"<>") === false) {
+            throw new \Exception('Invalid folder name.');
+        }
 
+        return new JsonResponse(['status' => $this->storage->createDir("{$path}/{$name}")]);
     }
 
     /**
@@ -137,7 +140,6 @@ class VueFinder
         is_resource($stream) && fclose($stream);
 
         return new JsonResponse(['status' => true]);
-
     }
 
     /**
@@ -179,8 +181,7 @@ class VueFinder
 
         $status = $this->storage->rename($from, $to);
 
-       return  new JsonResponse(['status' => $status]);
-
+        return  new JsonResponse(['status' => $status]);
     }
 
     /**
