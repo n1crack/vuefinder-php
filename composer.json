@@ -17,8 +17,8 @@
     }
   },
   "require": {
-    "symfony/http-foundation": "^4.2@dev",
-    "league/flysystem": "^1.1@dev"
+    "symfony/http-foundation": "^4.1",
+    "league/flysystem": "^1.0"
   },
   "minimum-stability": "stable"
 }
