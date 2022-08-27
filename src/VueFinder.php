@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use League\Flysystem\Filesystem;
+use function in_array;
 
 class VueFinder
 {
@@ -66,7 +67,10 @@ class VueFinder
     {
         $this->config = $config;
         $query = $this->request->get('q');
-        $route_array = ['index', 'newfolder', 'newfile', 'read', 'download', 'rename', 'move', 'delete', 'upload', 'archive', 'preview'];
+        $route_array = [
+            'index', 'newfolder', 'newfile', 'read', 'download', 'rename', 'move', 'delete', 'upload', 'archive',
+            'unarchive', 'preview',
+        ];
 
         try {
             if (!in_array($query, $route_array, true)) {
@@ -274,7 +278,7 @@ class VueFinder
         return $this->index();
     }
 
-        /**
+    /**
      * @return JsonResponse
      * @throws FileNotFoundException
      */
@@ -300,12 +304,11 @@ class VueFinder
                 foreach ($dirFiles as $dirFile) {
                     $file = $this->manager->readStream($dirFile->path());
 
-                    $zipStorage->writeStream($dirFile->path(), $file);
+                    $zipStorage->writeStream(str_replace($this->request->get('path').DIRECTORY_SEPARATOR,'',$dirFile->path()), $file);
                 }
             } else {
                 $file = $this->manager->readStream($item->path);
-
-                $zipStorage->writeStream($item->path, $file);
+                $zipStorage->writeStream( str_replace($this->request->get('path').DIRECTORY_SEPARATOR,'',$item->path), $file);
             }
         }
 
@@ -313,6 +316,46 @@ class VueFinder
             $this->manager->writeStream($path, $zipStream);
             fclose($zipStream);
         }
+        unlink($zipFile);
+
+        return $this->index();
+    }
+
+        /**
+     * @return JsonResponse
+     * @throws FileNotFoundException
+     */
+    public function unarchive()
+    {
+        $zipItem = $this->request->get('item');
+
+        $zipStream = $this->manager->readStream($zipItem);
+
+        $zipFile = sys_get_temp_dir().basename($zipItem);
+
+        file_put_contents($zipFile, $zipStream);
+
+        $zipStorage = new Filesystem(
+            new ZipArchiveAdapter(
+                new FilesystemZipArchiveProvider(
+                    $zipFile,
+                ),
+            ),
+        );
+
+        $dirFiles = $zipStorage->listContents('', true)
+            ->filter(fn(StorageAttributes $attributes) => $attributes->isFile())
+            ->toArray();
+
+        $path = $this->request->get('path').DIRECTORY_SEPARATOR;
+
+        foreach ($dirFiles as $dirFile) {
+            $file = $zipStorage->readStream($dirFile->path());
+
+            $this->manager->writeStream($path.$dirFile->path(), $file);
+        }
+
+        unlink($zipFile);
 
         return $this->index();
     }
