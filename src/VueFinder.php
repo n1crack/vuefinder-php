@@ -2,6 +2,14 @@
 
 namespace Ozdemir\Vuefinder;
 
+use Exception;
+use League\Flysystem\FileExistsException;
+use League\Flysystem\FileNotFoundException;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\MountManager;
+use League\Flysystem\StorageAttributes;
+use League\Flysystem\ZipArchive\FilesystemZipArchiveProvider;
+use League\Flysystem\ZipArchive\ZipArchiveAdapter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -12,15 +20,38 @@ class VueFinder
 {
     private $storage;
     private $config;
+    private array $storages;
+    private $adapter;
+    private $rootPath;
+    private MountManager $manager;
+    private $realpaths;
 
     /**
      * VueFinder constructor.
-     * @param Filesystem $storage
+     * @param  array  $storages
      */
-    public function __construct(Filesystem $storage)
+    public function __construct(array $storages)
     {
-        $this->storage = $storage;
         $this->request = Request::createFromGlobals();
+        $this->adapterKey = $this->request->get('adapter', array_keys($storages)[0]);
+        $this->storages = array_keys($storages);
+
+        $storage = [];
+        $this->realpaths = [];
+        foreach ($storages as $key => [$adapter, $args]) {
+            $storage[$key] = new Filesystem(new $adapter(...$args));
+            $this->realpaths[$key] = $args[0];
+        }
+
+        $this->manager = new MountManager($storage);
+
+        [$adapter, $args] = $storages[$this->adapterKey];
+
+        $this->adapter = new $adapter(...$args);
+
+        $this->rootPath = realpath($args[0]);
+
+        $this->storage = new Filesystem($this->adapter);
     }
 
     /**
@@ -29,9 +60,7 @@ class VueFinder
      */
     public function directories($files)
     {
-        return array_filter($files, function ($item) {
-            return $item['type'] == 'dir';
-        });
+        return array_filter($files, static fn($item) => $item['type'] == 'dir');
     }
 
     /**
@@ -40,9 +69,7 @@ class VueFinder
      */
     public function files($files)
     {
-        return array_filter($files, function ($item) {
-            return $item['type'] == 'file';
-        });
+        return array_filter($files, static fn($item) => $item['type'] == 'file');
     }
 
     /**
@@ -52,51 +79,61 @@ class VueFinder
     {
         $this->config = $config;
         $query = $this->request->get('q');
-        $route_array = ['index', 'newfolder', 'read', 'download', 'rename', 'delete', 'upload'];
+        $route_array = ['index', 'newfolder', 'newfile', 'read', 'download', 'rename', 'move', 'delete', 'upload', 'archive', 'preview'];
 
         try {
-            if (!\in_array($query, $route_array, true)) {
-                throw new \Exception('The query does not have a valid method.');
+            if (!in_array($query, $route_array, true)) {
+                throw new Exception('The query does not have a valid method.');
             }
             $response = $this->$query();
+            $response->headers->set('Access-Control-Allow-Origin', "*");
+            $response->headers->set('Access-Control-Allow-Headers', "*");
             $response->send();
-        } catch (\Exception $e) {
+
+        } catch (Exception $e) {
             $response = new JsonResponse(['status' => false, 'message' => $e->getMessage()], 400);
+            $response->headers->set('Access-Control-Allow-Origin', "*");
+            $response->headers->set('Access-Control-Allow-Headers', "*");
             $response->send();
         }
     }
 
     /**
      * @return JsonResponse
+     * @throws FilesystemException
      */
     public function index()
     {
-        $root = '.';
-        $dirname = $this->request->get('path') ?? $root;
-        $parent = \dirname($dirname);
-        $types = $this->typeMap();
+        $dirname = $this->request->get('path', $this->adapterKey.'://');
 
-        $listcontent = $this->storage->listContents($dirname);
+        $listContents = $this->manager
+            ->listContents($dirname)
+            ->map(fn(StorageAttributes $attributes) => $attributes->jsonSerialize())
+            ->toArray();
 
         $files = array_merge(
-            $this->directories($listcontent),
-            $this->files($listcontent)
+            $this->directories($listContents),
+            $this->files($listContents)
         );
 
-        $files = array_map(function ($node) use ($types) {
-            if ($node['type'] == 'file' && isset($node['extension'])) {
-                $node['type'] = $types[mb_strtolower($node['extension'])] ?? 'file';
-            }
+        $files = array_map(function($node)  {
+            $node['basename'] = basename($node['path']);
+            $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
+            $node['storage'] = $this->adapterKey;
 
-            if ($node['type'] == 'dir') {
-                $node['type'] = 'folder';
+            if ($node['type'] != 'dir') {
+                try {
+                    $node['mime_type'] = $this->storage->mimeType($node['path']);
+                    // it is ok!
+                } catch (Exception $exception) {
+                    // it failed!
+                }
             }
-
-            if ($this->config['publicPaths'] && $node['type'] != 'folder') {
-                foreach ($this->config['publicPaths'] as $path => $domain) {
-                    $path = str_replace('/', '\/', $path);
-                    if (preg_match('/^'.$path.'/i', $node['path'])) {
-                        $node['fileUrl'] = preg_replace('/^'.$path.'/i', $domain, $node['path']);
+            if ($this->config['publicPaths'] && $node['type'] != 'dir') {
+                foreach ($this->config['publicPaths'] as $publicPath => $domain) {
+                    $publicPath = str_replace('/', '\/', $publicPath);
+                    if (preg_match('/^'.$publicPath.'/i', $node['path'])) {
+                        $node['url'] = preg_replace('/^'.$publicPath.'/i', $domain, $node['path']);
                     }
                 }
             }
@@ -104,7 +141,10 @@ class VueFinder
             return $node;
         }, $files);
 
-        return new JsonResponse(compact('root', 'parent', 'dirname', 'files'));
+        $storages = $this->storages;
+        $adapter = $this->adapterKey;
+
+        return new JsonResponse(compact(['adapter', 'storages', 'dirname', 'files']));
     }
 
     /**
@@ -116,15 +156,33 @@ class VueFinder
         $name = $this->request->get('name');
 
         if (!strpbrk($name, "\\/?%*:|\"<>") === false) {
-            throw new \Exception('Invalid folder name.');
+            throw new Exception('Invalid folder name.');
         }
+        $this->storage->createDirectory("$path/$name");
 
-        return new JsonResponse(['status' => $this->storage->createDir("{$path}/{$name}")]);
+        return $this->index();
     }
 
     /**
      * @return JsonResponse
-     * @throws \League\Flysystem\FileExistsException
+     */
+    public function newfile()
+    {
+        $path = $this->request->get('path');
+        $name = $this->request->get('name');
+
+        if (!strpbrk($name, "\\/?%*:|\"<>") === false) {
+            throw new Exception('Invalid file name.');
+        }
+
+        $this->storage->write($path. DIRECTORY_SEPARATOR .$name, '');
+
+        return $this->index();
+    }
+
+    /**
+     * @return JsonResponse
+     * @throws FileExistsException
      */
     public function upload()
     {
@@ -133,7 +191,7 @@ class VueFinder
 
         $stream = fopen($file->getRealPath(), 'r+');
         $this->storage->writeStream(
-            $path.'/'.$file->getClientOriginalName(),
+            $path.DIRECTORY_SEPARATOR.$file->getClientOriginalName(),
             $stream
         );
 
@@ -144,17 +202,27 @@ class VueFinder
 
     /**
      * @return StreamedResponse
-     * @throws \League\Flysystem\FileNotFoundException
+     * @throws FileNotFoundException
      */
     public function read()
     {
         $path = $this->request->get('path');
+
+
         return $this->streamFile($path);
     }
 
+    public function preview()
+    {
+        $path = $this->request->get('path');
+
+        return $this->streamFile($path);
+    }
+
+
     /**
      * @return StreamedResponse
-     * @throws \League\Flysystem\FileNotFoundException
+     * @throws FileNotFoundException
      */
     public function download()
     {
@@ -166,70 +234,99 @@ class VueFinder
             basename($path)
         );
         $response->headers->set('Content-Disposition', $disposition);
+
         return $response;
     }
 
     /**
      * @return JsonResponse
-     * @throws \League\Flysystem\FileExistsException
-     * @throws \League\Flysystem\FileNotFoundException
+     * @throws FileExistsException
+     * @throws FileNotFoundException
      */
     public function rename()
     {
-        $from = $this->request->get('from');
-        $to = $this->request->get('to');
+        $from = $this->request->get('item');
+        $to = dirname($from).DIRECTORY_SEPARATOR.$this->request->get('name');
 
-        $status = $this->storage->rename($from, $to);
+        $this->storage->move($from, $to);
 
-        return  new JsonResponse(['status' => $status]);
+        return $this->index();
+    }
+
+    public function move()
+    {
+        $to = $this->request->get('item');
+
+        $items = json_decode($this->request->get('items'));
+
+        foreach ($items as $item) {
+            $target = $to.DIRECTORY_SEPARATOR.basename($item->path);
+
+            $this->storage->move($item->path, $target);
+        }
+
+        return $this->index();
     }
 
     /**
      * @return JsonResponse
-     * @throws \League\Flysystem\FileNotFoundException
+     * @throws FileNotFoundException
      */
     public function delete()
     {
         $items = json_decode($this->request->get('items'));
 
         foreach ($items as $item) {
-            if ($item->type == 'folder') {
-                $this->storage->deleteDir($item->path);
+            if ($item->type == 'dir') {
+                $this->storage->deleteDirectory($item->path);
             } else {
                 $this->storage->delete($item->path);
             }
         }
 
-        return new JsonResponse(['status' => true]);
+        return $this->index();
     }
 
-    /**
-     * @return array
+        /**
+     * @return JsonResponse
+     * @throws FileNotFoundException
      */
-    private function typeMap()
+    public function archive()
     {
-        $types = [
-            'file-image' => ['ai', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'ps', 'psd', 'svg', 'tif', 'tiff'],
-            'file-excel' => ['ods', 'xlr', 'xls', 'xlsx'],
-            'file-alt' => ['txt'],
-            'file-pdf' => ['pdf'],
-            'file-code' => ['c', 'class', 'cpp', 'cs', 'h', 'java', 'sh', 'swift', 'vb', 'js', 'css', 'htm', 'html', 'php'],
-            'file-archive' => ['zip', 'zipx', 'tar', '7z', 'tar.bz2', 'tar.gz', 'z', 'pkg', 'deb', 'rpm'],
-            'file-word' => ['doc', 'docx', 'odt', 'rtf', 'tex', 'wks', 'wps', 'wpd'],
-            'file-powerpoint' => ['key', 'odp', 'pps', 'ppt', 'pptx'],
-            'file-audio' => ['aif', 'cda', 'mid', 'midi', 'mp3', 'mpa', 'ogg', 'wav', 'wma', 'wpl'],
-            'file-video' => ['3g2', '3gp', 'avi', 'flv', 'h264', 'mkv', 'm4v', 'mov', 'mp4', 'mpg', 'mpeg', 'swf', 'wmv']
-        ];
+        $items = json_decode($this->request->get('items'));
+        $zipFile = $this->rootPath.DIRECTORY_SEPARATOR.$this->request->get('name');
 
-        $types = array_map('array_fill_keys', $types, array_keys($types));
+        $zipStorage = new Filesystem(
+            new ZipArchiveAdapter(
+                new FilesystemZipArchiveProvider(
+                    $zipFile,
+                ),
+            ),
+        );
+        foreach ($items as $item) {
+            if ($item->type == 'dir') {
+                $dirFiles = $this->storage->listContents($item->path, true)
+                    ->filter(fn(StorageAttributes $attributes) => $attributes->isFile())
+                    ->toArray();
+                foreach ($dirFiles as $dirFile) {
+                    $file = $this->storage->readStream($dirFile->path());
 
-        return array_merge(...$types);
+                    $zipStorage->writeStream($dirFile->path(), $file);
+                }
+            } else {
+                $file = $this->storage->readStream($item->path);
+
+                $zipStorage->writeStream($item->path, $file);
+            }
+        }
+
+        return $this->index();
     }
 
     /**
      * @param $path
      * @return StreamedResponse
-     * @throws \League\Flysystem\FileNotFoundException
+     * @throws FileNotFoundException|FilesystemException
      */
     public function streamFile($path)
     {
@@ -237,15 +334,22 @@ class VueFinder
 
         $response = new StreamedResponse();
 
-        $mimeType = $this->storage->getMimetype($path);
-        $size = $this->storage->getSize($path);
+        $mimeType = $this->storage->mimeType($path);
+        $size = $this->storage->fileSize($path);
 
+        $response->headers->set('Access-Control-Allow-Origin', "*");
+        $response->headers->set('Access-Control-Allow-Headers', "*");
         $response->headers->set('Content-Length', $size);
         $response->headers->set('Content-Type', $mimeType);
         $response->headers->set('Content-Transfer-Encoding', 'binary');
         $response->headers->set('Cache-Control', 'must-revalidate, post-check=0, pre-check=0');
+        $response->headers->set('Accept-Ranges', 'bytes');
 
-        $response->setCallback(function () use ($stream) {
+        if ( isset($_SERVER['HTTP_RANGE']) ) {
+            header('HTTP/1.1 206 Partial Content');
+        }
+
+        $response->setCallback(function() use ($stream) {
             ob_end_clean();
             fpassthru($stream);
         });

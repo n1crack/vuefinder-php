@@ -1,5 +1,6 @@
 vendor
 storage
+test
 public
 composer.lock
 .DS_Store
