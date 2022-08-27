@@ -7,17 +7,32 @@ composer require ozdemir/vuefinder-php
 ```
 ## Usage
 ```php
-use Ozdemir\Vuefinder\Vuefinder;
-use League\Flysystem\Filesystem;
-use League\Flysystem\Adapter\Local;
+require '../vendor/autoload.php';
 
-// Set Filesystem Storage 
-$adapter = new Local(\dirname(__DIR__).'/storage');
-$storage = new Filesystem($adapter);
+use Ozdemir\Vuefinder\Vuefinder;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 
 // Set VueFinder class
-$vuefinder = new VueFinder($storage);
+$vuefinder = new VueFinder([
+    'local' => new LocalFilesystemAdapter(dirname(__DIR__).'/storage'),
+    'test' =>  new LocalFilesystemAdapter(dirname(__DIR__).'/test'),
+]);
+
+$config = [
+    'publicPaths' => [
+        'public' => 'http://example.test',
+    ],
+];
 
 // Perform the class
-$vuefinder->init();
+$vuefinder->init($config);
 ```
+
+
+
+
+
+
+
+
+
