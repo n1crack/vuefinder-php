@@ -21,8 +21,6 @@ class VueFinder
     private $storage;
     private $config;
     private array $storages;
-    private $adapter;
-    private $rootPath;
     private MountManager $manager;
     private $realpaths;
 
@@ -33,25 +31,14 @@ class VueFinder
     public function __construct(array $storages)
     {
         $this->request = Request::createFromGlobals();
+
         $this->adapterKey = $this->request->get('adapter', array_keys($storages)[0]);
+
         $this->storages = array_keys($storages);
 
-        $storage = [];
-        $this->realpaths = [];
-        foreach ($storages as $key => [$adapter, $args]) {
-            $storage[$key] = new Filesystem(new $adapter(...$args));
-            $this->realpaths[$key] = $args[0];
-        }
+        $storages = array_map(fn($adapter) => new Filesystem($adapter), $storages);
 
-        $this->manager = new MountManager($storage);
-
-        [$adapter, $args] = $storages[$this->adapterKey];
-
-        $this->adapter = new $adapter(...$args);
-
-        $this->rootPath = realpath($args[0]);
-
-        $this->storage = new Filesystem($this->adapter);
+        $this->manager = new MountManager($storages);
     }
 
     /**
@@ -123,7 +110,7 @@ class VueFinder
 
             if ($node['type'] != 'dir') {
                 try {
-                    $node['mime_type'] = $this->storage->mimeType($node['path']);
+                    $node['mime_type'] = $this->manager->mimeType($node['path']);
                     // it is ok!
                 } catch (Exception $exception) {
                     // it failed!
@@ -158,7 +145,7 @@ class VueFinder
         if (!strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid folder name.');
         }
-        $this->storage->createDirectory("$path/$name");
+        $this->manager->createDirectory("$path/$name");
 
         return $this->index();
     }
@@ -175,7 +162,7 @@ class VueFinder
             throw new Exception('Invalid file name.');
         }
 
-        $this->storage->write($path. DIRECTORY_SEPARATOR .$name, '');
+        $this->manager->write($path. DIRECTORY_SEPARATOR .$name, '');
 
         return $this->index();
     }
@@ -248,7 +235,7 @@ class VueFinder
         $from = $this->request->get('item');
         $to = dirname($from).DIRECTORY_SEPARATOR.$this->request->get('name');
 
-        $this->storage->move($from, $to);
+        $this->manager->move($from, $to);
 
         return $this->index();
     }
@@ -262,7 +249,7 @@ class VueFinder
         foreach ($items as $item) {
             $target = $to.DIRECTORY_SEPARATOR.basename($item->path);
 
-            $this->storage->move($item->path, $target);
+            $this->manager->move($item->path, $target);
         }
 
         return $this->index();
@@ -278,9 +265,9 @@ class VueFinder
 
         foreach ($items as $item) {
             if ($item->type == 'dir') {
-                $this->storage->deleteDirectory($item->path);
+                $this->manager->deleteDirectory($item->path);
             } else {
-                $this->storage->delete($item->path);
+                $this->manager->delete($item->path);
             }
         }
 
@@ -294,7 +281,8 @@ class VueFinder
     public function archive()
     {
         $items = json_decode($this->request->get('items'));
-        $zipFile = $this->rootPath.DIRECTORY_SEPARATOR.$this->request->get('name');
+        $path = $this->request->get('path').DIRECTORY_SEPARATOR.$this->request->get('name');
+        $zipFile = sys_get_temp_dir().DIRECTORY_SEPARATOR.$this->request->get('name');
 
         $zipStorage = new Filesystem(
             new ZipArchiveAdapter(
@@ -303,21 +291,27 @@ class VueFinder
                 ),
             ),
         );
+
         foreach ($items as $item) {
             if ($item->type == 'dir') {
-                $dirFiles = $this->storage->listContents($item->path, true)
+                $dirFiles = $this->manager->listContents($item->path, true)
                     ->filter(fn(StorageAttributes $attributes) => $attributes->isFile())
                     ->toArray();
                 foreach ($dirFiles as $dirFile) {
-                    $file = $this->storage->readStream($dirFile->path());
+                    $file = $this->manager->readStream($dirFile->path());
 
                     $zipStorage->writeStream($dirFile->path(), $file);
                 }
             } else {
-                $file = $this->storage->readStream($item->path);
+                $file = $this->manager->readStream($item->path);
 
                 $zipStorage->writeStream($item->path, $file);
             }
+        }
+
+        if ($zipStream = fopen($zipFile, 'r')) {
+            $this->manager->writeStream($path, $zipStream);
+            fclose($zipStream);
         }
 
         return $this->index();
@@ -330,12 +324,12 @@ class VueFinder
      */
     public function streamFile($path)
     {
-        $stream = $this->storage->readStream($path);
+        $stream = $this->manager->readStream($path);
 
         $response = new StreamedResponse();
 
-        $mimeType = $this->storage->mimeType($path);
-        $size = $this->storage->fileSize($path);
+        $mimeType = $this->manager->mimeType($path);
+        $size = $this->manager->fileSize($path);
 
         $response->headers->set('Access-Control-Allow-Origin', "*");
         $response->headers->set('Access-Control-Allow-Headers', "*");
