@@ -3,8 +3,10 @@
 namespace Ozdemir\Vuefinder;
 
 use Exception;
-use League\Flysystem\FileExistsException;
+use JsonException;
+use League\Flysystem\Filesystem;
 use League\Flysystem\FileNotFoundException;
+use League\Flysystem\FileExistsException;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\MountManager;
 use League\Flysystem\StorageAttributes;
@@ -14,16 +16,15 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
-use League\Flysystem\Filesystem;
-use function in_array;
+
 
 class VueFinder
 {
-    private $storage;
-    private $config;
-    private array $storages;
     private MountManager $manager;
-    private $realpaths;
+    private array $storages;
+    private string $adapterKey;
+    private Request $request;
+    private $config;
 
     /**
      * VueFinder constructor.
@@ -37,7 +38,7 @@ class VueFinder
 
         $this->storages = array_keys($storages);
 
-        $storages = array_map(fn($adapter) => new Filesystem($adapter), $storages);
+        $storages = array_map(static fn($adapter) => new Filesystem($adapter), $storages);
 
         $this->manager = new MountManager($storages);
     }
@@ -46,7 +47,7 @@ class VueFinder
      * @param $files
      * @return array
      */
-    public function directories($files)
+    public function directories($files): array
     {
         return array_filter($files, static fn($item) => $item['type'] == 'dir');
     }
@@ -55,7 +56,7 @@ class VueFinder
      * @param $files
      * @return array
      */
-    public function files($files)
+    public function files($files): array
     {
         return array_filter($files, static fn($item) => $item['type'] == 'file');
     }
@@ -63,13 +64,14 @@ class VueFinder
     /**
      * @param $config
      */
-    public function init($config)
+    public function init($config): void
     {
         $this->config = $config;
         $query = $this->request->get('q');
+
         $route_array = [
-            'index', 'newfolder', 'newfile', 'read', 'download', 'rename', 'move', 'delete', 'upload', 'archive',
-            'unarchive', 'preview',
+            'index', 'newfolder', 'newfile', 'download', 'rename', 'move', 'delete', 'upload', 'archive',
+            'unarchive', 'preview', 'save'
         ];
 
         try {
@@ -87,6 +89,7 @@ class VueFinder
             $response->headers->set('Access-Control-Allow-Headers', "*");
             $response->send();
         }
+
     }
 
     /**
@@ -173,34 +176,28 @@ class VueFinder
 
     /**
      * @return JsonResponse
-     * @throws FileExistsException
+     *
+     * @throws FilesystemException
      */
     public function upload()
     {
-        $path = $this->request->get('path');
-        $file = $this->request->files->get('file');
+      header("Access-Control-Allow-Origin: *");
+      header("Access-Control-Allow-Headers: *");
 
+        $name = $this->request->get('name');
+        $path = $this->request->get('path');
+
+        $file = $this->request->files->get('file');
         $stream = fopen($file->getRealPath(), 'r+');
-        $this->storage->writeStream(
-            $path.DIRECTORY_SEPARATOR.$file->getClientOriginalName(),
+
+        $this->manager->writeStream(
+            $path.DIRECTORY_SEPARATOR.$name,
             $stream
         );
+        fclose($stream);
 
-        is_resource($stream) && fclose($stream);
-
-        return new JsonResponse(['status' => true]);
-    }
-
-    /**
-     * @return StreamedResponse
-     * @throws FileNotFoundException
-     */
-    public function read()
-    {
-        $path = $this->request->get('path');
-
-
-        return $this->streamFile($path);
+        $response = new JsonResponse(['ok']);
+        $response->send();
     }
 
     public function preview()
@@ -210,6 +207,16 @@ class VueFinder
         return $this->streamFile($path);
     }
 
+
+    public function save()
+    {
+        $path = $this->request->get('path');
+        $content = $this->request->get('content');
+
+        $this->manager->write($path, $content);
+
+        return $this->preview();
+    }
 
     /**
      * @return StreamedResponse
@@ -281,12 +288,13 @@ class VueFinder
     /**
      * @return JsonResponse
      * @throws FileNotFoundException
+     * @throws JsonException|FilesystemException
      */
     public function archive()
     {
-        $items = json_decode($this->request->get('items'));
+        $items = json_decode($this->request->get('items'), false, 512, JSON_THROW_ON_ERROR);
         $path = $this->request->get('path').DIRECTORY_SEPARATOR.$this->request->get('name');
-        $zipFile = sys_get_temp_dir().DIRECTORY_SEPARATOR.$this->request->get('name');
+        $zipFile = sys_get_temp_dir().$this->request->get('name');
 
         $zipStorage = new Filesystem(
             new ZipArchiveAdapter(
