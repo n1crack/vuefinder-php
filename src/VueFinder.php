@@ -56,9 +56,9 @@ class VueFinder
      * @param $files
      * @return array
      */
-    public function files($files): array
+    public function files($files, $search = false): array
     {
-        return array_filter($files, static fn($item) => $item['type'] == 'file');
+        return array_filter($files, static fn($item) => $item['type'] == 'file' && (!$search || fnmatch("*$search*", $item['path'], FNM_CASEFOLD)));
     }
 
     /**
@@ -71,7 +71,7 @@ class VueFinder
 
         $route_array = [
             'index', 'newfolder', 'newfile', 'download', 'rename', 'move', 'delete', 'upload', 'archive',
-            'unarchive', 'preview', 'save'
+            'unarchive', 'preview', 'save', 'search'
         ];
 
         try {
@@ -114,6 +114,54 @@ class VueFinder
             $node['basename'] = basename($node['path']);
             $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
             $node['storage'] = $this->adapterKey;
+
+            if ($node['type'] != 'dir') {
+                try {
+                    $node['mime_type'] = $this->manager->mimeType($node['path']);
+                    // it is ok!
+                } catch (Exception $exception) {
+                    // it failed!
+                }
+            }
+            if ($this->config['publicPaths'] && $node['type'] != 'dir') {
+                foreach ($this->config['publicPaths'] as $publicPath => $domain) {
+                    $publicPath = str_replace('/', '\/', $publicPath);
+                    if (preg_match('/^'.$publicPath.'/i', $node['path'])) {
+                        $node['url'] = preg_replace('/^'.$publicPath.'/i', $domain, $node['path']);
+                    }
+                }
+            }
+
+            return $node;
+        }, $files);
+
+        $storages = $this->storages;
+        $adapter = $this->adapterKey;
+
+        return new JsonResponse(compact(['adapter', 'storages', 'dirname', 'files']));
+    }
+
+    /**
+     * @return JsonResponse
+     * @throws FilesystemException
+     */
+    public function search()
+    {
+        $dirname = $this->request->get('path', $this->adapterKey.'://');
+        $filter = $this->request->get('filter');
+
+        $listContents = $this->manager
+            ->listContents($dirname, true)
+            ->map(fn(StorageAttributes $attributes) => $attributes->jsonSerialize())
+            ->toArray();
+
+        $files = array_values($this->files($listContents, $filter));
+
+        $files = array_map(function($node)  {
+            $node['basename'] = basename($node['path']);
+            $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
+            $node['storage'] = $this->adapterKey;
+            $node['dir'] = dirname($node['path']);
 
             if ($node['type'] != 'dir') {
                 try {
