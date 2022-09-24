@@ -32,6 +32,7 @@ class VueFinder
      */
     public function __construct(array $storages)
     {
+
         $this->request = Request::createFromGlobals();
 
         $this->adapterKey = $this->request->get('adapter', array_keys($storages)[0]);
@@ -71,7 +72,7 @@ class VueFinder
 
         $route_array = [
             'index', 'newfolder', 'newfile', 'download', 'rename', 'move', 'delete', 'upload', 'archive',
-            'unarchive', 'preview', 'save', 'search'
+            'unarchive', 'preview', 'save', 'search',
         ];
 
         try {
@@ -82,11 +83,11 @@ class VueFinder
             $response->headers->set('Access-Control-Allow-Origin', "*");
             $response->headers->set('Access-Control-Allow-Headers', "*");
             $response->send();
-
         } catch (Exception $e) {
             $response = new JsonResponse(['status' => false, 'message' => $e->getMessage()], 400);
             $response->headers->set('Access-Control-Allow-Origin', "*");
             $response->headers->set('Access-Control-Allow-Headers', "*");
+
             $response->send();
         }
 
@@ -286,13 +287,13 @@ class VueFinder
 
     /**
      * @return JsonResponse
-     * @throws FileExistsException
-     * @throws FileNotFoundException
+     * @throws FilesystemException
      */
     public function rename()
     {
         $from = $this->request->get('item');
-        $to = dirname($from).DIRECTORY_SEPARATOR.$this->request->get('name');
+        $path = $this->request->get('path');
+        $to = $path.DIRECTORY_SEPARATOR.$this->request->get('name');
 
         $this->manager->move($from, $to);
 
