@@ -59,7 +59,9 @@ class VueFinder
      */
     public function files($files, $search = false): array
     {
-        return array_filter($files, static fn($item) => $item['type'] == 'file' && (!$search || fnmatch("*$search*", $item['path'], FNM_CASEFOLD)));
+        return array_filter($files,
+            static fn($item) => $item['type'] == 'file' && (!$search || fnmatch("*$search*", $item['path'],
+                        FNM_CASEFOLD)));
     }
 
     /**
@@ -90,7 +92,15 @@ class VueFinder
 
             $response->send();
         }
+    }
 
+    public function config($key)
+    {
+        if (isset($this->config[$this->adapterKey]) && isset($this->config[$this->adapterKey][$key])) {
+            return $this->config[$this->adapterKey][$key];
+        }
+
+        return null;
     }
 
     /**
@@ -111,7 +121,7 @@ class VueFinder
             $this->files($listContents)
         );
 
-        $files = array_map(function($node)  {
+        $files = array_map(function($node) {
             $node['basename'] = basename($node['path']);
             $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
             $node['storage'] = $this->adapterKey;
@@ -124,14 +134,7 @@ class VueFinder
                     // it failed!
                 }
             }
-            if ($this->config['publicPaths'] && $node['type'] != 'dir') {
-                foreach ($this->config['publicPaths'] as $publicPath => $domain) {
-                    $publicPath = str_replace('/', '\/', $publicPath);
-                    if (preg_match('/^'.$publicPath.'/i', $node['path'])) {
-                        $node['url'] = preg_replace('/^'.$publicPath.'/i', $domain, $node['path']);
-                    }
-                }
-            }
+            $this->setPublicLinks($node);
 
             return $node;
         }, $files);
@@ -158,7 +161,7 @@ class VueFinder
 
         $files = array_values($this->files($listContents, $filter));
 
-        $files = array_map(function($node)  {
+        $files = array_map(function($node) {
             $node['basename'] = basename($node['path']);
             $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
             $node['storage'] = $this->adapterKey;
@@ -172,14 +175,7 @@ class VueFinder
                     // it failed!
                 }
             }
-            if ($this->config['publicPaths'] && $node['type'] != 'dir') {
-                foreach ($this->config['publicPaths'] as $publicPath => $domain) {
-                    $publicPath = str_replace('/', '\/', $publicPath);
-                    if (preg_match('/^'.$publicPath.'/i', $node['path'])) {
-                        $node['url'] = preg_replace('/^'.$publicPath.'/i', $domain, $node['path']);
-                    }
-                }
-            }
+            $this->setPublicLinks($node);
 
             return $node;
         }, $files);
@@ -218,7 +214,7 @@ class VueFinder
             throw new Exception('Invalid file name.');
         }
 
-        $this->manager->write($path. DIRECTORY_SEPARATOR .$name, '');
+        $this->manager->write($path.DIRECTORY_SEPARATOR.$name, '');
 
         return $this->index();
     }
@@ -230,8 +226,8 @@ class VueFinder
      */
     public function upload()
     {
-      header("Access-Control-Allow-Origin: *");
-      header("Access-Control-Allow-Headers: *");
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Headers: *");
 
         $name = $this->request->get('name');
         $path = $this->request->get('path');
@@ -361,11 +357,13 @@ class VueFinder
                 foreach ($dirFiles as $dirFile) {
                     $file = $this->manager->readStream($dirFile->path());
 
-                    $zipStorage->writeStream(str_replace($this->request->get('path').DIRECTORY_SEPARATOR,'',$dirFile->path()), $file);
+                    $zipStorage->writeStream(str_replace($this->request->get('path').DIRECTORY_SEPARATOR, '',
+                        $dirFile->path()), $file);
                 }
             } else {
                 $file = $this->manager->readStream($item->path);
-                $zipStorage->writeStream( str_replace($this->request->get('path').DIRECTORY_SEPARATOR,'',$item->path), $file);
+                $zipStorage->writeStream(str_replace($this->request->get('path').DIRECTORY_SEPARATOR, '', $item->path),
+                    $file);
             }
         }
 
@@ -378,7 +376,7 @@ class VueFinder
         return $this->index();
     }
 
-        /**
+    /**
      * @return JsonResponse
      * @throws FileNotFoundException
      */
@@ -439,7 +437,7 @@ class VueFinder
         $response->headers->set('Cache-Control', 'must-revalidate, post-check=0, pre-check=0');
         $response->headers->set('Accept-Ranges', 'bytes');
 
-        if ( isset($_SERVER['HTTP_RANGE']) ) {
+        if (isset($_SERVER['HTTP_RANGE'])) {
             header('HTTP/1.1 206 Partial Content');
         }
 
@@ -449,5 +447,19 @@ class VueFinder
         });
 
         return $response;
+    }
+
+    private function setPublicLinks(mixed &$node)
+    {
+        $publicLinks = $this->config('publicLinks');
+
+        if ($publicLinks && $node['type'] != 'dir') {
+            foreach ($publicLinks as $publicLink => $domain) {
+                $path = str_replace($this->adapterKey.'://', '', $node['path']);
+                if (preg_match('/^'.$publicLink.'/i', $path)) {
+                    $node['url'] = preg_replace('/^'.$publicLink.'/i', $domain, $path);
+                }
+            }
+        }
     }
 }
