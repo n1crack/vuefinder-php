@@ -96,11 +96,7 @@ class VueFinder
 
     public function config($key)
     {
-        if (isset($this->config[$this->adapterKey]) && isset($this->config[$this->adapterKey][$key])) {
-            return $this->config[$this->adapterKey][$key];
-        }
-
-        return null;
+        return $this->config[$key] ?? null;
     }
 
     /**
@@ -455,9 +451,10 @@ class VueFinder
 
         if ($publicLinks && $node['type'] != 'dir') {
             foreach ($publicLinks as $publicLink => $domain) {
-                $path = str_replace($this->adapterKey.'://', '', $node['path']);
-                if (preg_match('/^'.$publicLink.'/i', $path)) {
-                    $node['url'] = preg_replace('/^'.$publicLink.'/i', $domain, $path);
+                $publicLink = str_replace('/', '\/', $publicLink);
+
+                if (preg_match('/^'.$publicLink.'/i', $node['path'])) {
+                    $node['url'] = preg_replace('/^'.$publicLink.'/i', $domain, $node['path']);
                 }
             }
         }

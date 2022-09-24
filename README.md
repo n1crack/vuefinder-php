@@ -26,10 +26,10 @@ $vuefinder = new VueFinder([
     'test' =>  new LocalFilesystemAdapter(dirname(__DIR__).'/test'),
 ]);
 
-// todo: will be fixed.. 
+
 $config = [
-    'publicPaths' => [
-        'public' => 'http://example.test',
+    'publicLinks' => [
+        'local://public' => 'http://example.test',
     ],
 ];
 
