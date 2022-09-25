@@ -413,7 +413,7 @@ class VueFinder
             ->filter(fn(StorageAttributes $attributes) => $attributes->isFile())
             ->toArray();
 
-        $path = $this->request->get('path').DIRECTORY_SEPARATOR;
+        $path = $this->request->get('path').DIRECTORY_SEPARATOR.pathinfo($zipItem, PATHINFO_FILENAME).DIRECTORY_SEPARATOR;
 
         foreach ($dirFiles as $dirFile) {
             $file = $zipStorage->readStream($dirFile->path());
