@@ -89,7 +89,7 @@ class VueFinder
 
             if (!in_array($query, ['index', 'download', 'preview', 'search'],
                     true) && $this->storageAdapters[$this->adapterKey] instanceof ReadOnlyFilesystemAdapter) {
-                throw new Exception('This is a readonly adapter.');
+                throw new Exception('This is a readonly storage.');
             }
 
             $response = $this->$query();
