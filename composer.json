@@ -19,7 +19,8 @@
   "require": {
     "symfony/http-foundation": "^6.1",
     "league/flysystem": "^3.0",
-    "league/flysystem-ziparchive": "^3.2"
+    "league/flysystem-ziparchive": "^3.2",
+    "league/flysystem-read-only": "^3.3"
   },
   "minimum-stability": "stable"
 }

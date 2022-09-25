@@ -9,6 +9,7 @@ use League\Flysystem\FileNotFoundException;
 use League\Flysystem\FileExistsException;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\MountManager;
+use League\Flysystem\ReadOnly\ReadOnlyFilesystemAdapter;
 use League\Flysystem\StorageAttributes;
 use League\Flysystem\ZipArchive\FilesystemZipArchiveProvider;
 use League\Flysystem\ZipArchive\ZipArchiveAdapter;
@@ -25,6 +26,7 @@ class VueFinder
     private string $adapterKey;
     private Request $request;
     private $config;
+    private array $storageAdapters;
 
     /**
      * VueFinder constructor.
@@ -32,6 +34,8 @@ class VueFinder
      */
     public function __construct(array $storages)
     {
+
+        $this->storageAdapters = $storages;
 
         $this->request = Request::createFromGlobals();
 
@@ -59,9 +63,10 @@ class VueFinder
      */
     public function files($files, $search = false): array
     {
-        return array_filter($files,
-            static fn($item) => $item['type'] == 'file' && (!$search || fnmatch("*$search*", $item['path'],
-                        FNM_CASEFOLD)));
+        return array_filter(
+            $files,
+            static fn($item) => $item['type'] == 'file' && (!$search || fnmatch("*$search*", $item['path'], FNM_CASEFOLD))
+        );
     }
 
     /**
@@ -81,17 +86,20 @@ class VueFinder
             if (!in_array($query, $route_array, true)) {
                 throw new Exception('The query does not have a valid method.');
             }
+
+            if (!in_array($query, ['index', 'download', 'preview', 'search'],
+                    true) && $this->storageAdapters[$this->adapterKey] instanceof ReadOnlyFilesystemAdapter) {
+                throw new Exception('This is a readonly adapter.');
+            }
+
             $response = $this->$query();
-            $response->headers->set('Access-Control-Allow-Origin', "*");
-            $response->headers->set('Access-Control-Allow-Headers', "*");
-            $response->send();
         } catch (Exception $e) {
             $response = new JsonResponse(['status' => false, 'message' => $e->getMessage()], 400);
-            $response->headers->set('Access-Control-Allow-Origin', "*");
-            $response->headers->set('Access-Control-Allow-Headers', "*");
-
-            $response->send();
         }
+        $response->headers->set('Access-Control-Allow-Origin', "*");
+        $response->headers->set('Access-Control-Allow-Headers', "*");
+
+        $response->send();
     }
 
     public function config($key)
@@ -125,9 +133,8 @@ class VueFinder
             if ($node['type'] != 'dir') {
                 try {
                     $node['mime_type'] = $this->manager->mimeType($node['path']);
-                    // it is ok!
                 } catch (Exception $exception) {
-                    // it failed!
+                    //
                 }
             }
             $this->setPublicLinks($node);
@@ -166,9 +173,8 @@ class VueFinder
             if ($node['type'] != 'dir') {
                 try {
                     $node['mime_type'] = $this->manager->mimeType($node['path']);
-                    // it is ok!
                 } catch (Exception $exception) {
-                    // it failed!
+                    //
                 }
             }
             $this->setPublicLinks($node);
@@ -184,6 +190,7 @@ class VueFinder
 
     /**
      * @return JsonResponse
+     * @throws FilesystemException
      */
     public function newfolder()
     {
@@ -283,9 +290,10 @@ class VueFinder
      */
     public function rename()
     {
+        $name = $this->request->get('name');
         $from = $this->request->get('item');
         $path = $this->request->get('path');
-        $to = $path.DIRECTORY_SEPARATOR.$this->request->get('name');
+        $to = $path.DIRECTORY_SEPARATOR.$name;
 
         $this->manager->move($from, $to);
 
@@ -375,6 +383,7 @@ class VueFinder
     /**
      * @return JsonResponse
      * @throws FileNotFoundException
+     * @throws FilesystemException
      */
     public function unarchive()
     {
