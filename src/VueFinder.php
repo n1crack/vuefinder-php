@@ -82,13 +82,22 @@ class VueFinder
             'unarchive', 'preview', 'save', 'search',
         ];
 
+        if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+            $response = new JsonResponse();
+            $response->headers->set('Access-Control-Allow-Origin', "*");
+            $response->headers->set('Access-Control-Allow-Headers', "*");
+            $response->send();
+        }
+
         try {
             if (!in_array($query, $route_array, true)) {
                 throw new Exception('The query does not have a valid method.');
             }
 
-            if (!in_array($query, ['index', 'download', 'preview', 'search'],
-                    true) && $this->storageAdapters[$this->adapterKey] instanceof ReadOnlyFilesystemAdapter) {
+            $adapter = $this->storageAdapters[$this->adapterKey];
+            $readonly_array = ['index', 'download', 'preview', 'search'];
+
+            if ($adapter instanceof ReadOnlyFilesystemAdapter && !in_array($query, $readonly_array, true)) {
                 throw new Exception('This is a readonly storage.');
             }
 
@@ -96,6 +105,7 @@ class VueFinder
         } catch (Exception $e) {
             $response = new JsonResponse(['status' => false, 'message' => $e->getMessage()], 400);
         }
+
         $response->headers->set('Access-Control-Allow-Origin', "*");
         $response->headers->set('Access-Control-Allow-Headers', "*");
 
@@ -229,9 +239,6 @@ class VueFinder
      */
     public function upload()
     {
-        header("Access-Control-Allow-Origin: *");
-        header("Access-Control-Allow-Headers: *");
-
         $name = $this->request->get('name');
         $path = $this->request->get('path');
 
@@ -244,8 +251,7 @@ class VueFinder
         );
         fclose($stream);
 
-        $response = new JsonResponse(['ok']);
-        $response->send();
+        return new JsonResponse(['ok']);
     }
 
     public function preview()
