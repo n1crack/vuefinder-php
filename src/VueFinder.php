@@ -210,7 +210,12 @@ class VueFinder
         if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid folder name.');
         }
-        $this->manager->createDirectory("$path/$name");
+
+        if ($this->manager->directoryExists($path.DIRECTORY_SEPARATOR.$name)) {
+            throw new Exception('The folder is exists. Try another name.');
+        }
+
+        $this->manager->createDirectory($path.DIRECTORY_SEPARATOR.$name);
 
         return $this->index();
     }
@@ -225,6 +230,10 @@ class VueFinder
 
         if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid file name.');
+        }
+
+        if ($this->manager->fileExists($path.DIRECTORY_SEPARATOR.$name)) {
+            throw new Exception('The file is exists. Try another name.');
         }
 
         $this->manager->write($path.DIRECTORY_SEPARATOR.$name, '');
@@ -356,6 +365,10 @@ class VueFinder
         $name .= '.zip';
         $path = $this->request->get('path').DIRECTORY_SEPARATOR.$name;
         $zipFile = sys_get_temp_dir().$name;
+
+        if ($this->manager->fileExists($path)) {
+            throw new Exception('The archive is exists. Try another name.');
+        }
 
         $zipStorage = new Filesystem(
             new ZipArchiveAdapter(
