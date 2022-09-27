@@ -207,7 +207,7 @@ class VueFinder
         $path = $this->request->get('path');
         $name = $this->request->get('name');
 
-        if (!strpbrk($name, "\\/?%*:|\"<>") === false) {
+        if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid folder name.');
         }
         $this->manager->createDirectory("$path/$name");
@@ -223,7 +223,7 @@ class VueFinder
         $path = $this->request->get('path');
         $name = $this->request->get('name');
 
-        if (!strpbrk($name, "\\/?%*:|\"<>") === false) {
+        if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid file name.');
         }
 
@@ -347,8 +347,13 @@ class VueFinder
      */
     public function archive()
     {
+        $name = pathinfo($this->request->get('name'), PATHINFO_FILENAME);
+        if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
+            throw new Exception('Invalid file name.');
+        }
+
         $items = json_decode($this->request->get('items'), false, 512, JSON_THROW_ON_ERROR);
-        $name = pathinfo($this->request->get('name'), PATHINFO_FILENAME) . '.zip';
+        $name .= '.zip';
         $path = $this->request->get('path').DIRECTORY_SEPARATOR.$name;
         $zipFile = sys_get_temp_dir().$name;
 
