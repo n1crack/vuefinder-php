@@ -348,8 +348,9 @@ class VueFinder
     public function archive()
     {
         $items = json_decode($this->request->get('items'), false, 512, JSON_THROW_ON_ERROR);
-        $path = $this->request->get('path').DIRECTORY_SEPARATOR.$this->request->get('name');
-        $zipFile = sys_get_temp_dir().$this->request->get('name');
+        $name = pathinfo($this->request->get('name'), PATHINFO_FILENAME) . '.zip';
+        $path = $this->request->get('path').DIRECTORY_SEPARATOR.$name;
+        $zipFile = sys_get_temp_dir().$name;
 
         $zipStorage = new Filesystem(
             new ZipArchiveAdapter(
