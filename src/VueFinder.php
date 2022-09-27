@@ -323,6 +323,13 @@ class VueFinder
 
         foreach ($items as $item) {
             $target = $to.DIRECTORY_SEPARATOR.basename($item->path);
+            if ($this->manager->fileExists($target)) {
+                throw new Exception('One of the files is already exists.');
+            }
+        }
+
+        foreach ($items as $item) {
+            $target = $to.DIRECTORY_SEPARATOR.basename($item->path);
 
             $this->manager->move($item->path, $target);
         }
