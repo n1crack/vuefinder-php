@@ -211,11 +211,13 @@ class VueFinder
             throw new Exception('Invalid folder name.');
         }
 
-        if ($this->manager->directoryExists($path.DIRECTORY_SEPARATOR.$name)) {
-            throw new Exception('The folder is exists. Try another name.');
+        $newPath = $path.DIRECTORY_SEPARATOR.$name;
+
+        if ($this->manager->fileExists($newPath) || $this->manager->directoryExists($newPath)) {
+            throw new Exception('The file/folder is already exists. Try another name.');
         }
 
-        $this->manager->createDirectory($path.DIRECTORY_SEPARATOR.$name);
+        $this->manager->createDirectory($newPath);
 
         return $this->index();
     }
@@ -231,12 +233,13 @@ class VueFinder
         if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid file name.');
         }
+        $newPath = $path.DIRECTORY_SEPARATOR.$name;
 
-        if ($this->manager->fileExists($path.DIRECTORY_SEPARATOR.$name)) {
-            throw new Exception('The file is exists. Try another name.');
+        if ($this->manager->fileExists($newPath) || $this->manager->directoryExists($newPath)) {
+            throw new Exception('The file/folder is already exists. Try another name.');
         }
 
-        $this->manager->write($path.DIRECTORY_SEPARATOR.$name, '');
+        $this->manager->write($newPath, '');
 
         return $this->index();
     }
@@ -310,6 +313,10 @@ class VueFinder
         $path = $this->request->get('path');
         $to = $path.DIRECTORY_SEPARATOR.$name;
 
+        if ($this->manager->fileExists($to) || $this->manager->directoryExists($to)) {
+            throw new Exception('The file/folder is already exists.');
+        }
+
         $this->manager->move($from, $to);
 
         return $this->index();
@@ -323,7 +330,7 @@ class VueFinder
 
         foreach ($items as $item) {
             $target = $to.DIRECTORY_SEPARATOR.basename($item->path);
-            if ($this->manager->fileExists($target)) {
+            if ($this->manager->fileExists($target) || $this->manager->directoryExists($target)) {
                 throw new Exception('One of the files is already exists.');
             }
         }
@@ -416,7 +423,6 @@ class VueFinder
      */
     public function unarchive()
     {
-
         $zipItem = $this->request->get('item');
 
         $zipStream = $this->manager->readStream($zipItem);
