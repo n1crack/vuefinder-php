@@ -366,14 +366,11 @@ class VueFinder
                     ->toArray();
                 foreach ($dirFiles as $dirFile) {
                     $file = $this->manager->readStream($dirFile->path());
-
-                    $zipStorage->writeStream(str_replace($this->request->get('path').DIRECTORY_SEPARATOR, '',
-                        $dirFile->path()), $file);
+                    $zipStorage->writeStream(str_replace($this->request->get('path'), '', $dirFile->path()), $file);
                 }
             } else {
                 $file = $this->manager->readStream($item->path);
-                $zipStorage->writeStream(str_replace($this->request->get('path').DIRECTORY_SEPARATOR, '', $item->path),
-                    $file);
+                $zipStorage->writeStream(str_replace($this->request->get('path'), '', $item->path), $file);
             }
         }
 
@@ -393,6 +390,7 @@ class VueFinder
      */
     public function unarchive()
     {
+
         $zipItem = $this->request->get('item');
 
         $zipStream = $this->manager->readStream($zipItem);
@@ -415,9 +413,9 @@ class VueFinder
 
         $path = $this->request->get('path').DIRECTORY_SEPARATOR.pathinfo($zipItem, PATHINFO_FILENAME).DIRECTORY_SEPARATOR;
 
+
         foreach ($dirFiles as $dirFile) {
             $file = $zipStorage->readStream($dirFile->path());
-
             $this->manager->writeStream($path.$dirFile->path(), $file);
         }
 
