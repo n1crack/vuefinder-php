@@ -14,7 +14,7 @@ composer require ozdemir/vuefinder-php
 ```php
 require '../vendor/autoload.php';
 
-use Ozdemir\Vuefinder\Vuefinder;
+use Ozdemir\VueFinder\Vuefinder;
 use League\Flysystem\Local\LocalFilesystemAdapter;
 
 // Set VueFinder class
