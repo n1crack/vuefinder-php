@@ -1,6 +1,6 @@
 <?php
 
-namespace Ozdemir\Vuefinder;
+namespace Ozdemir\VueFinder;
 
 use Exception;
 use JsonException;
