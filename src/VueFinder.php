@@ -140,7 +140,7 @@ class VueFinder
             $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
             $node['storage'] = $this->adapterKey;
 
-            if ($node['type'] != 'dir') {
+            if ($node['type'] != 'dir' && $node['extension']) {
                 try {
                     $node['mime_type'] = $this->manager->mimeType($node['path']);
                 } catch (Exception $exception) {
@@ -467,7 +467,12 @@ class VueFinder
 
         $response = new StreamedResponse();
 
-        $mimeType = $this->manager->mimeType($path);
+        try {
+            $mimeType = $this->manager->mimeType($path);
+        } catch (Exception $exception) {
+            $mimeType = 'application/octet-stream';
+        }
+
         $size = $this->manager->fileSize($path);
 
         $response->headers->set('Access-Control-Allow-Origin', "*");
