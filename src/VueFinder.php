@@ -382,7 +382,7 @@ class VueFinder
         $items = json_decode($this->request->get('items'), false, 512, JSON_THROW_ON_ERROR);
         $name .= '.zip';
         $path = $this->request->get('path').DIRECTORY_SEPARATOR.$name;
-        $zipFile = sys_get_temp_dir().$name;
+        $zipFile = tempnam(sys_get_temp_dir(), $name);
 
         if ($this->manager->fileExists($path)) {
             throw new Exception('The archive is exists. Try another name.');
@@ -431,7 +431,7 @@ class VueFinder
 
         $zipStream = $this->manager->readStream($zipItem);
 
-        $zipFile = sys_get_temp_dir().basename($zipItem);
+        $zipFile = tempnam(sys_get_temp_dir(), $zipItem);
 
         file_put_contents($zipFile, $zipStream);
 
