@@ -297,9 +297,15 @@ class VueFinder
         $path = $this->request->get('path');
         $response = $this->streamFile($path);
 
+        $filenameFallback = preg_replace(
+            '#^.*\.#',
+            md5($path) . '.', $path
+        );
+
         $disposition = $response->headers->makeDisposition(
             ResponseHeaderBag::DISPOSITION_ATTACHMENT,
-            basename($path)
+            basename($path),
+            $filenameFallback
         );
         $response->headers->set('Content-Disposition', $disposition);
 
