@@ -82,8 +82,19 @@ class VueFinder
         $query = $this->request->get('q');
 
         $route_array = [
-            'index', 'newfolder', 'newfile', 'download', 'rename', 'move', 'delete', 'upload', 'archive',
-            'unarchive', 'preview', 'save', 'search',
+            'index' => 'get',
+            'download' => 'get',
+            'preview' => 'get',
+            'search' => 'get',
+            'newfolder' => 'post',
+            'newfile' => 'post',
+            'rename' => 'post',
+            'move' => 'post',
+            'delete' => 'post',
+            'upload' => 'post',
+            'archive' => 'post',
+            'unarchive' => 'post',
+            'save' => 'post',
         ];
 
         if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
@@ -91,10 +102,12 @@ class VueFinder
             $response->headers->set('Access-Control-Allow-Origin', "*");
             $response->headers->set('Access-Control-Allow-Headers', "*");
             $response->send();
+            return;
         }
 
         try {
-            if (!in_array($query, $route_array, true)) {
+            if (!array_key_exists($query, $route_array)
+                || $route_array[$query] !== strtolower($this->request->getMethod())) {
                 throw new Exception('The query does not have a valid method.');
             }
 
@@ -209,7 +222,7 @@ class VueFinder
     public function newfolder()
     {
         $path = $this->request->get('path');
-        $name = $this->request->get('name');
+        $name = $this->request->getPayload()->get('name');
 
         if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid folder name.');
@@ -232,7 +245,7 @@ class VueFinder
     public function newfile()
     {
         $path = $this->request->get('path');
-        $name = $this->request->get('name');
+        $name = $this->request->getPayload()->get('name');
 
         if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid file name.');
@@ -255,8 +268,8 @@ class VueFinder
      */
     public function upload()
     {
-        $name = $this->request->get('name');
         $path = $this->request->get('path');
+        $name = $this->request->getPayload()->get('name');
 
         $file = $this->request->files->get('file');
         $stream = fopen($file->getRealPath(), 'r+');
@@ -281,7 +294,7 @@ class VueFinder
     public function save()
     {
         $path = $this->request->get('path');
-        $content = $this->request->get('content');
+        $content = $this->request->getPayload()->get('content');
 
         $this->manager->write($path, $content);
 
@@ -318,8 +331,9 @@ class VueFinder
      */
     public function rename()
     {
-        $name = $this->request->get('name');
-        $from = $this->request->get('item');
+        $payload = $this->request->getPayload();
+        $name = $payload->get('name');
+        $from = $payload->get('item');
         $path = $this->request->get('path');
         $to = $path.DIRECTORY_SEPARATOR.$name;
 
@@ -334,21 +348,21 @@ class VueFinder
 
     public function move()
     {
-        $to = $this->request->get('item');
-
-        $items = json_decode($this->request->get('items'));
+        $payload = $this->request->getPayload();
+        $to = $payload->get('item');
+        $items = $payload->all('items');
 
         foreach ($items as $item) {
-            $target = $to.DIRECTORY_SEPARATOR.basename($item->path);
+            $target = $to.DIRECTORY_SEPARATOR.basename($item['path']);
             if ($this->manager->fileExists($target) || $this->manager->directoryExists($target)) {
                 throw new Exception('One of the files is already exists.');
             }
         }
 
         foreach ($items as $item) {
-            $target = $to.DIRECTORY_SEPARATOR.basename($item->path);
+            $target = $to.DIRECTORY_SEPARATOR.basename($item['path']);
 
-            $this->manager->move($item->path, $target);
+            $this->manager->move($item['path'], $target);
         }
 
         return $this->index();
@@ -360,13 +374,13 @@ class VueFinder
      */
     public function delete()
     {
-        $items = json_decode($this->request->get('items'));
+        $items = $this->request->getPayload()->all("items");
 
         foreach ($items as $item) {
-            if ($item->type == 'dir') {
-                $this->manager->deleteDirectory($item->path);
+            if ($item['type'] == 'dir') {
+                $this->manager->deleteDirectory($item['path']);
             } else {
-                $this->manager->delete($item->path);
+                $this->manager->delete($item['path']);
             }
         }
 
@@ -380,12 +394,13 @@ class VueFinder
      */
     public function archive()
     {
-        $name = pathinfo($this->request->get('name'), PATHINFO_FILENAME);
+        $payload = $this->request->getPayload();
+        $name = pathinfo($payload->get('name'), PATHINFO_FILENAME);
         if (!$name || !strpbrk($name, "\\/?%*:|\"<>") === false) {
             throw new Exception('Invalid file name.');
         }
 
-        $items = json_decode($this->request->get('items'), false, 512, JSON_THROW_ON_ERROR);
+        $items = $payload->all('items');
         $name .= '.zip';
         $path = $this->request->get('path').DIRECTORY_SEPARATOR.$name;
         $zipFile = tempnam(sys_get_temp_dir(), $name);
@@ -403,8 +418,8 @@ class VueFinder
         );
 
         foreach ($items as $item) {
-            if ($item->type == 'dir') {
-                $dirFiles = $this->manager->listContents($item->path, true)
+            if ($item['type'] == 'dir') {
+                $dirFiles = $this->manager->listContents($item['path'], true)
                     ->filter(fn(StorageAttributes $attributes) => $attributes->isFile())
                     ->toArray();
                 foreach ($dirFiles as $dirFile) {
@@ -412,8 +427,8 @@ class VueFinder
                     $zipStorage->writeStream(str_replace($this->request->get('path'), '', $dirFile->path()), $file);
                 }
             } else {
-                $file = $this->manager->readStream($item->path);
-                $zipStorage->writeStream(str_replace($this->request->get('path'), '', $item->path), $file);
+                $file = $this->manager->readStream($item['path']);
+                $zipStorage->writeStream(str_replace($this->request->get('path'), '', $item['path']), $file);
             }
         }
 
@@ -433,7 +448,7 @@ class VueFinder
      */
     public function unarchive()
     {
-        $zipItem = $this->request->get('item');
+        $zipItem = $this->request->getPayload()->get('item');
 
         $zipStream = $this->manager->readStream($zipItem);
 
