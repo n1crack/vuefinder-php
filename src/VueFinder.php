@@ -513,7 +513,6 @@ class VueFinder
         }
 
         $response->setCallback(function() use ($stream) {
-            ob_end_clean();
             fpassthru($stream);
         });
 
