@@ -83,6 +83,7 @@ class VueFinder
 
         $route_array = [
             'index' => 'get',
+            'subfolders' => 'get',
             'download' => 'get',
             'preview' => 'get',
             'search' => 'get',
@@ -112,7 +113,7 @@ class VueFinder
             }
 
             $adapter = $this->storageAdapters[$this->adapterKey];
-            $readonly_array = ['index', 'download', 'preview', 'search'];
+            $readonly_array = ['index', 'download', 'preview', 'search', 'subfolders'];
 
             if ($adapter instanceof ReadOnlyFilesystemAdapter && !in_array($query, $readonly_array, true)) {
                 throw new Exception('This is a readonly storage.');
@@ -173,6 +174,23 @@ class VueFinder
         $adapter = $this->adapterKey;
 
         return new JsonResponse(compact(['adapter', 'storages', 'dirname', 'files']));
+    }
+
+    public function subfolders()
+    {
+        $dirname = $this->request->get('path', $this->adapterKey . '://');
+
+        $folders = $this->manager
+            ->listContents($dirname)
+            ->filter(fn(StorageAttributes $attributes) => $attributes->isDir())
+            ->map(fn(StorageAttributes $attributes) => [
+                'adapter' => $this->adapterKey,
+                'path' => $attributes->path(),
+                'basename' => basename($attributes->path()),
+            ])
+            ->toArray();;
+
+        return new JsonResponse(compact(['folders']));
     }
 
     /**
