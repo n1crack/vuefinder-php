@@ -40,7 +40,6 @@ class VueFinder
         $this->request = Request::createFromGlobals();
 
         $this->storageKey = $this->request->get('storage');
-        
 
         if (!$this->storageKey || !in_array($this->storageKey, array_keys($storages)) ) {
             $this->storageKey = array_keys($storages)[0];
@@ -92,6 +91,7 @@ class VueFinder
             'newfile' => 'post',
             'rename' => 'post',
             'move' => 'post',
+            'copy' => 'post',
             'delete' => 'post',
             'upload' => 'post',
             'archive' => 'post',
@@ -173,8 +173,9 @@ class VueFinder
 
         $storages = $this->storages;
         $storage = $this->storageKey;
-
-        return new JsonResponse(compact(['storage', 'storages', 'dirname', 'files']));
+        $read_only = $this->storageAdapters[$this->storageKey] instanceof ReadOnlyFilesystemAdapter;
+        
+        return new JsonResponse(compact(['storage', 'storages', 'dirname', 'files', 'read_only']));
     }
 
     public function subfolders()
@@ -185,7 +186,7 @@ class VueFinder
             ->listContents($dirname)
             ->filter(fn(StorageAttributes $attributes) => $attributes->isDir())
             ->map(fn(StorageAttributes $attributes) => [
-                'adapter' => $this->storageKey,
+                'storage' => $this->storageKey,
                 'path' => $attributes->path(),
                 'basename' => basename($attributes->path()),
             ])
@@ -361,6 +362,28 @@ class VueFinder
         }
 
         $this->manager->move($from, $to);
+
+        return $this->index();
+    }
+
+    public function copy()
+    {
+        $payload = $this->request->getPayload();
+        $to = $payload->get('item');
+        $items = $payload->all('items');
+
+        foreach ($items as $item) {
+            $target = $to.DIRECTORY_SEPARATOR.basename($item['path']);
+            if ($this->manager->fileExists($target) || $this->manager->directoryExists($target)) {
+                throw new Exception('One of the files is already exists.');
+            }
+        }
+
+        foreach ($items as $item) {
+            $target = $to.DIRECTORY_SEPARATOR.basename($item['path']);
+
+            $this->manager->copy($item['path'], $target);
+        }
 
         return $this->index();
     }
