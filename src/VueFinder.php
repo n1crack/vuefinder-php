@@ -39,11 +39,9 @@ class VueFinder
 
         $this->request = Request::createFromGlobals();
 
-        $this->storageKey = $this->request->get('storage');
-
-        if (!$this->storageKey || !in_array($this->storageKey, array_keys($storages)) ) {
-            $this->storageKey = array_keys($storages)[0];
-        }
+        // Extract storage key from path instead of expecting it as a parameter
+        $path = $this->request->get('path', '');
+        $this->storageKey = $this->extractStorageFromPath($path, array_keys($storages));
 
         $this->storages = array_keys($storages);
 
@@ -113,7 +111,10 @@ class VueFinder
                 throw new Exception('The query does not have a valid method.');
             }
 
-            $storage = $this->storageAdapters[$this->storageKey];
+            // Get storage from path for this request
+            $path = $this->request->get('path', '');
+            $currentStorageKey = $this->getStorageFromPath($path);
+            $storage = $this->storageAdapters[$currentStorageKey];
             $readonly_array = ['index', 'download', 'preview', 'search', 'subfolders'];
 
             if ($storage instanceof ReadOnlyFilesystemAdapter && !in_array($query, $readonly_array, true)) {
@@ -137,12 +138,76 @@ class VueFinder
     }
 
     /**
+     * Extract storage key from path
+     * @param string $path
+     * @param array $availableStorages
+     * @return string
+     */
+    private function extractStorageFromPath(string $path, array $availableStorages): string
+    {
+        // If path contains storage:// format, extract the storage key
+        if (preg_match('/^([^:]+):\/\//', $path, $matches)) {
+            $storageKey = $matches[1];
+            if (in_array($storageKey, $availableStorages)) {
+                return $storageKey;
+            }
+        }
+        
+        // Default to first available storage if no valid storage found in path
+        return $availableStorages[0];
+    }
+
+    /**
+     * Get storage key from path, updating the current storage key
+     * @param string $path
+     * @return string
+     */
+    private function getStorageFromPath(string $path): string
+    {
+        $this->storageKey = $this->extractStorageFromPath($path, $this->storages);
+        return $this->storageKey;
+    }
+
+    /**
+     * Custom dirname function that properly handles storage:// paths
+     * @param string $path
+     * @return string
+     */
+    private function customDirname(string $path): string
+    {
+        // Handle storage:// format
+        if (preg_match('/^([^:]+):\/\/(.*)$/', $path, $matches)) {
+            $storage = $matches[1];
+            $actualPath = $matches[2];
+            
+            // If path is empty or just '.', return storage root
+            if (empty($actualPath) || $actualPath === '.') {
+                return $storage . '://';
+            }
+            
+            $dirname = dirname($actualPath);
+            
+            // If dirname returns '.' or empty, return storage root
+            if ($dirname === '.' || $dirname === '') {
+                return $storage . '://';
+            }
+            
+            return $storage . '://' . $dirname;
+        }
+        
+        // Fallback to regular dirname for non-storage paths
+        return dirname($path);
+    }
+
+    /**
      * @return JsonResponse
      * @throws FilesystemException
      */
     public function index()
     {
-        $dirname = $this->request->get('path', $this->storageKey.'://');
+        $path = $this->request->get('path', '');
+        $currentStorageKey = $this->getStorageFromPath($path);
+        $dirname = $path ?: $currentStorageKey.'://';
 
         $listContents = $this->manager
             ->listContents($dirname)
@@ -157,7 +222,6 @@ class VueFinder
         $files = array_map(function($node) {
             $node['basename'] = basename($node['path']);
             $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
-            $node['storage'] = $this->storageKey;
 
             if ($node['type'] != 'dir' && $node['extension']) {
                 try {
@@ -171,28 +235,30 @@ class VueFinder
             return $node;
         }, $files);
 
+        $read_only = $this->storageAdapters[$currentStorageKey] instanceof ReadOnlyFilesystemAdapter;
         $storages = $this->storages;
-        $storage = $this->storageKey;
-        $read_only = $this->storageAdapters[$this->storageKey] instanceof ReadOnlyFilesystemAdapter;
         
-        return new JsonResponse(compact(['storage', 'storages', 'dirname', 'files', 'read_only']));
+        return new JsonResponse(compact(['dirname', 'files', 'read_only', 'storages']));
     }
 
     public function subfolders()
     {
-        $dirname = $this->request->get('path', $this->storageKey . '://');
+        $path = $this->request->get('path', '');
+        $currentStorageKey = $this->getStorageFromPath($path);
+        $dirname = $path ?: $currentStorageKey . '://';
 
         $folders = $this->manager
             ->listContents($dirname)
             ->filter(fn(StorageAttributes $attributes) => $attributes->isDir())
             ->map(fn(StorageAttributes $attributes) => [
-                'storage' => $this->storageKey,
                 'path' => $attributes->path(),
                 'basename' => basename($attributes->path()),
             ])
             ->toArray();;
 
-        return new JsonResponse(compact(['folders']));
+        $storages = $this->storages;
+        
+        return new JsonResponse(compact(['folders', 'storages']));
     }
 
     /**
@@ -201,7 +267,9 @@ class VueFinder
      */
     public function search()
     {
-        $dirname = $this->request->get('path', $this->storageKey.'://');
+        $path = $this->request->get('path', '');
+        $currentStorageKey = $this->getStorageFromPath($path);
+        $dirname = $path ?: $currentStorageKey.'://';
         $filter = $this->request->get('filter');
 
         $listContents = $this->manager
@@ -214,8 +282,7 @@ class VueFinder
         $files = array_map(function($node) {
             $node['basename'] = basename($node['path']);
             $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
-            $node['storage'] = $this->storageKey;
-            $node['dir'] = dirname($node['path']);
+            $node['dir'] = $this->customDirname($node['path']);
 
             if ($node['type'] != 'dir') {
                 try {
@@ -230,9 +297,8 @@ class VueFinder
         }, $files);
 
         $storages = $this->storages;
-        $storage = $this->storageKey;
-
-        return new JsonResponse(compact(['storage', 'storages', 'dirname', 'files']));
+        
+        return new JsonResponse(compact(['dirname', 'files', 'storages']));
     }
 
     /**
