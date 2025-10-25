@@ -268,12 +268,13 @@ class VueFinder
     public function search()
     {
         $path = $this->request->get('path', '');
+        $deep = $this->request->get('deep', false);
         $currentStorageKey = $this->getStorageFromPath($path);
         $dirname = $path ?: $currentStorageKey.'://';
         $filter = $this->request->get('filter');
 
         $listContents = $this->manager
-            ->listContents($dirname, true)
+            ->listContents($dirname, $deep)
             ->map(fn(StorageAttributes $attributes) => $attributes->jsonSerialize())
             ->toArray();
 
