@@ -34,6 +34,7 @@ class NewFolderAction extends BaseAction implements ActionInterface
             $this->filesystem,
             $this->pathParser,
             $this->storageResolver,
+            $this->urlResolver,
             $this->config
         );
         

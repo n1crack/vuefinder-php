@@ -24,8 +24,7 @@ class IndexAction extends BaseAction implements ActionInterface
             $this->filesystem->filterFiles($listContents)
         );
 
-        $publicLinks = $this->getPublicLinks();
-        $files = $this->enrichNodes($files, $this->filesystem, $this->pathParser, $publicLinks);
+        $files = $this->enrichNodes($files, $this->filesystem, $this->pathParser, $this->urlResolver);
 
         $read_only = false; // TODO: Check if current storage is read-only
         $storages = $this->getStorages();

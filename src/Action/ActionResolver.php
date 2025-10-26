@@ -29,6 +29,7 @@ class ActionResolver
      */
     public function resolve(Request $request, ActionFactory $actionFactory): ActionInterface
     {
+        // Use query parameter to determine action
         $query = $request->get('q');
         
         $routeArray = [

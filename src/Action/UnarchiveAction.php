@@ -29,14 +29,16 @@ class UnarchiveAction extends BaseAction implements ActionInterface
             )
         );
 
-        $dirContents = $zipStorage->listContents('', true);
-        $dirFiles = array_filter($dirContents, fn($file) => isset($file['type']) && $file['type'] == 'file');
+        $dirContents = iterator_to_array($zipStorage->listContents('', true));
+        $dirFiles = array_filter($dirContents, fn($file) => isset($file->path));
 
         $path = $this->request->get('path') . DIRECTORY_SEPARATOR . pathinfo($zipItem, PATHINFO_FILENAME) . DIRECTORY_SEPARATOR;
 
         foreach ($dirFiles as $dirFile) {
-            $file = $zipStorage->readStream($dirFile['path']);
-            $this->filesystem->writeStream($path . $dirFile['path'], $file);
+            if ($dirFile instanceof \League\Flysystem\StorageAttributes && $dirFile->isFile()) {
+                $file = $zipStorage->readStream($dirFile->path());
+                $this->filesystem->writeStream($path . $dirFile->path(), $file);
+            }
         }
 
         unlink($zipFile);
@@ -46,6 +48,7 @@ class UnarchiveAction extends BaseAction implements ActionInterface
             $this->filesystem,
             $this->pathParser,
             $this->storageResolver,
+            $this->urlResolver,
             $this->config
         );
         

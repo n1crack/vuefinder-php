@@ -5,6 +5,7 @@ namespace Ozdemir\VueFinder\Action;
 use Ozdemir\VueFinder\Interface\FilesystemServiceInterface;
 use Ozdemir\VueFinder\Interface\PathParserInterface;
 use Ozdemir\VueFinder\Interface\StorageResolverInterface;
+use Ozdemir\VueFinder\Interface\UrlResolverInterface;
 use Ozdemir\VueFinder\Trait\EnrichesNodeTrait;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -19,6 +20,7 @@ abstract class BaseAction
     protected FilesystemServiceInterface $filesystem;
     protected PathParserInterface $pathParser;
     protected StorageResolverInterface $storageResolver;
+    protected UrlResolverInterface $urlResolver;
     protected array $config;
 
     public function __construct(
@@ -26,23 +28,15 @@ abstract class BaseAction
         FilesystemServiceInterface $filesystem,
         PathParserInterface $pathParser,
         StorageResolverInterface $storageResolver,
+        UrlResolverInterface $urlResolver,
         array $config
     ) {
         $this->request = $request;
         $this->filesystem = $filesystem;
         $this->pathParser = $pathParser;
         $this->storageResolver = $storageResolver;
+        $this->urlResolver = $urlResolver;
         $this->config = $config;
-    }
-
-    /**
-     * Get public links configuration
-     * 
-     * @return array|null
-     */
-    protected function getPublicLinks(): ?array
-    {
-        return $this->config['publicLinks'] ?? null;
     }
 
     /**

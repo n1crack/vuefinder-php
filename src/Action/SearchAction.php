@@ -33,8 +33,7 @@ class SearchAction extends BaseAction implements ActionInterface
         $listContents = $this->filesystem->listContents($dirname, $deep);
         $files = array_values($this->filesystem->filterFiles($listContents, $filter));
 
-        $publicLinks = $this->getPublicLinks();
-        $files = $this->enrichNodes($files, $this->filesystem, $this->pathParser, $publicLinks);
+        $files = $this->enrichNodes($files, $this->filesystem, $this->pathParser, $this->urlResolver);
 
         // Add directory info for files
         $files = array_map(function($node) {

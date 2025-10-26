@@ -4,28 +4,27 @@ namespace Ozdemir\VueFinder\Trait;
 
 use Ozdemir\VueFinder\Interface\FilesystemServiceInterface;
 use Ozdemir\VueFinder\Interface\PathParserInterface;
+use Ozdemir\VueFinder\Interface\UrlResolverInterface;
 
 /**
  * Trait for enriching file/directory nodes with metadata
  */
 trait EnrichesNodeTrait
 {
-    use PublicLinksTrait;
-
     /**
      * Enrich a single node with metadata
      * 
      * @param array $node
      * @param FilesystemServiceInterface $filesystem
      * @param PathParserInterface $pathParser
-     * @param array|null $publicLinks
+     * @param UrlResolverInterface|null $urlResolver
      * @return array
      */
     protected function enrichNode(
         array $node,
         FilesystemServiceInterface $filesystem,
         PathParserInterface $pathParser,
-        ?array $publicLinks = null
+        ?UrlResolverInterface $urlResolver = null
     ): array {
         $node['basename'] = basename($node['path']);
         $node['extension'] = pathinfo($node['path'], PATHINFO_EXTENSION);
@@ -38,7 +37,13 @@ trait EnrichesNodeTrait
             }
         }
 
-        $this->setPublicLinks($node, $publicLinks);
+        // Add public URL if resolver is available
+        if ($urlResolver && $urlResolver->shouldHavePublicUrl($node['path'])) {
+            $publicUrl = $urlResolver->resolveUrl($node['path']);
+            if ($publicUrl) {
+                $node['url'] = $publicUrl;
+            }
+        }
 
         return $node;
     }
@@ -49,17 +54,17 @@ trait EnrichesNodeTrait
      * @param array $nodes
      * @param FilesystemServiceInterface $filesystem
      * @param PathParserInterface $pathParser
-     * @param array|null $publicLinks
+     * @param UrlResolverInterface|null $urlResolver
      * @return array
      */
     protected function enrichNodes(
         array $nodes,
         FilesystemServiceInterface $filesystem,
         PathParserInterface $pathParser,
-        ?array $publicLinks = null
+        ?UrlResolverInterface $urlResolver = null
     ): array {
-        return array_map(function($node) use ($filesystem, $pathParser, $publicLinks) {
-            return $this->enrichNode($node, $filesystem, $pathParser, $publicLinks);
+        return array_map(function($node) use ($filesystem, $pathParser, $urlResolver) {
+            return $this->enrichNode($node, $filesystem, $pathParser, $urlResolver);
         }, $nodes);
     }
 }
