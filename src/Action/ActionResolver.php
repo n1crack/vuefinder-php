@@ -34,12 +34,11 @@ class ActionResolver
         
         $routeArray = [
             'index' => 'get',
-            'subfolders' => 'get',
             'download' => 'get',
             'preview' => 'get',
             'search' => 'get',
-            'newfolder' => 'post',
-            'newfile' => 'post',
+            'create-folder' => 'post',
+            'create-file' => 'post',
             'rename' => 'post',
             'move' => 'post',
             'copy' => 'post',
@@ -71,7 +70,7 @@ class ActionResolver
 
         if ($storageKey && isset($this->storageAdapters[$storageKey])) {
             $storage = $this->storageAdapters[$storageKey];
-            $readonly_array = ['index', 'download', 'preview', 'search', 'subfolders'];
+            $readonly_array = ['index', 'download', 'preview', 'search'];
 
             if ($storage instanceof ReadOnlyFilesystemAdapter && !in_array($query, $readonly_array, true)) {
                 throw new ReadOnlyStorageException();

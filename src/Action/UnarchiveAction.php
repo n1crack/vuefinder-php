@@ -30,7 +30,7 @@ class UnarchiveAction extends BaseAction implements ActionInterface
         );
 
         $dirContents = iterator_to_array($zipStorage->listContents('', true));
-        $dirFiles = array_filter($dirContents, fn($file) => isset($file->path));
+        $dirFiles = array_filter($dirContents, fn($file) => $file->isFile());
 
         $path = $this->request->get('path') . DIRECTORY_SEPARATOR . pathinfo($zipItem, PATHINFO_FILENAME) . DIRECTORY_SEPARATOR;
 

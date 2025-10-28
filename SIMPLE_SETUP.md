@@ -148,7 +148,6 @@ See `URL_CONFIGURATION.md` for complete URL configuration options.
 - `save` - Save file content
 - `archive` - Create ZIP archives
 - `unarchive` - Extract ZIP files
-- `subfolders` - List subfolders
 
 ## Custom Routing Example
 

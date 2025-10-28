@@ -63,14 +63,13 @@ return $action->execute();
 - `rename` - Rename files/folders
 - `move` - Move files/folders
 - `copy` - Copy files/folders
-- `newfolder` - Create folder
-- `newfile` - Create file
+- `create-folder` - Create folder
+- `create-file` - Create file
 - `download` - Download files
 - `preview` - Preview files
 - `save` - Save file content
 - `archive` - Create ZIP archives
 - `unarchive` - Extract ZIP files
-- `subfolders` - List subfolders
 
 ## Professional URL Configuration
 

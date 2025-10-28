@@ -62,12 +62,11 @@ class ActionFactory
     {
         $actions = [
             'index' => IndexAction::class,
-            'subfolders' => SubfoldersAction::class,
             'download' => DownloadAction::class,
             'preview' => PreviewAction::class,
             'search' => SearchAction::class,
-            'newfolder' => NewFolderAction::class,
-            'newfile' => NewFileAction::class,
+            'create-folder' => CreateFolderAction::class,
+            'create-file' => CreateFileAction::class,
             'rename' => RenameAction::class,
             'move' => MoveAction::class,
             'copy' => CopyAction::class,

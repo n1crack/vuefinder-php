@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 /**
  * Action for creating new folders
  */
-class NewFolderAction extends BaseAction implements ActionInterface
+class CreateFolderAction extends BaseAction implements ActionInterface
 {
     public function execute(): JsonResponse
     {

@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 /**
  * Action for creating new files
  */
-class NewFileAction extends BaseAction implements ActionInterface
+class CreateFileAction extends BaseAction implements ActionInterface
 {
     public function execute(): JsonResponse
     {

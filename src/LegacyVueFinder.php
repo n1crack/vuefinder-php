@@ -124,7 +124,6 @@ class LegacyVueFinder
 
         $route_array = [
             'index' => 'get',
-            'subfolders' => 'get',
             'download' => 'get',
             'preview' => 'get',
             'search' => 'get',
@@ -158,7 +157,7 @@ class LegacyVueFinder
             $path = $this->request->get('path', '');
             $currentStorageKey = $this->getStorageFromPath($path);
             $storage = $this->storageAdapters[$currentStorageKey];
-            $readonly_array = ['index', 'download', 'preview', 'search', 'subfolders'];
+            $readonly_array = ['index', 'download', 'preview', 'search'];
 
             if ($storage instanceof ReadOnlyFilesystemAdapter && !in_array($query, $readonly_array, true)) {
                 throw new Exception('This is a readonly storage.');
@@ -282,26 +281,6 @@ class LegacyVueFinder
         $storages = $this->storages;
         
         return new JsonResponse(compact(['dirname', 'files', 'read_only', 'storages']));
-    }
-
-    public function subfolders()
-    {
-        $path = $this->request->get('path', '');
-        $currentStorageKey = $this->getStorageFromPath($path);
-        $dirname = $path ?: $currentStorageKey . '://';
-
-        $folders = $this->manager
-            ->listContents($dirname)
-            ->filter(fn(StorageAttributes $attributes) => $attributes->isDir())
-            ->map(fn(StorageAttributes $attributes) => [
-                'path' => $attributes->path(),
-                'basename' => basename($attributes->path()),
-            ])
-            ->toArray();;
-
-        $storages = $this->storages;
-        
-        return new JsonResponse(compact(['folders', 'storages']));
     }
 
     /**
