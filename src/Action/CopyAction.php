@@ -14,21 +14,21 @@ class CopyAction extends BaseAction implements ActionInterface
     public function execute(): JsonResponse
     {
         $payload = $this->request->getPayload();
-        $to = $payload->get('item');
-        $items = $payload->all('items');
-
+        $destination = $payload->get('destination');
+        $sources = $payload->all('sources');
+        
         // Check if any target already exists
-        foreach ($items as $item) {
-            $target = $to . DIRECTORY_SEPARATOR . basename($item['path']);
+        foreach ($sources as $source) {
+            $target = $destination . DIRECTORY_SEPARATOR . basename($source);
             if ($this->filesystem->exists($target)) {
                 throw new FileExistsException('One of the files already exists.');
             }
         }
 
         // Copy all items
-        foreach ($items as $item) {
-            $target = $to . DIRECTORY_SEPARATOR . basename($item['path']);
-            $this->filesystem->copy($item['path'], $target);
+        foreach ($sources as $source) {
+            $target = $destination . DIRECTORY_SEPARATOR . basename($source);
+            $this->filesystem->copy($source, $target);
         }
 
         $indexAction = new IndexAction(
