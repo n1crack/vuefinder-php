@@ -2,10 +2,10 @@
 
 namespace Ozdemir\VueFinder;
 
-use Ozdemir\VueFinder\Interface\FilesystemServiceInterface;
-use Ozdemir\VueFinder\Interface\PathParserInterface;
-use Ozdemir\VueFinder\Interface\StorageResolverInterface;
-use Ozdemir\VueFinder\Interface\UrlResolverInterface;
+use Ozdemir\VueFinder\Contracts\FilesystemServiceInterface;
+use Ozdemir\VueFinder\Contracts\PathParserInterface;
+use Ozdemir\VueFinder\Contracts\StorageResolverInterface;
+use Ozdemir\VueFinder\Contracts\UrlResolverInterface;
 
 /**
  * VueFinder Core - Framework agnostic core functionality

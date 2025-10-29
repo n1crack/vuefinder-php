@@ -4,10 +4,10 @@ namespace Ozdemir\VueFinder;
 
 use League\Flysystem\Filesystem;
 use League\Flysystem\MountManager;
-use Ozdemir\VueFinder\Service\FilesystemService;
-use Ozdemir\VueFinder\Service\PathParser;
-use Ozdemir\VueFinder\Service\StorageResolver;
-use Ozdemir\VueFinder\Service\UrlResolver;
+use Ozdemir\VueFinder\Services\FilesystemService;
+use Ozdemir\VueFinder\Services\PathParser;
+use Ozdemir\VueFinder\Services\StorageResolver;
+use Ozdemir\VueFinder\Services\UrlResolver;
 
 /**
  * Builder for VueFinder - automates all the setup!

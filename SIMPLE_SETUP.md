@@ -10,7 +10,7 @@
 require 'vendor/autoload.php';
 
 use Ozdemir\VueFinder\VueFinderBuilder;
-use Ozdemir\VueFinder\Action\VueFinderActionFactory;
+use Ozdemir\VueFinder\Actions\VueFinderActionFactory;
 use League\Flysystem\Local\LocalFilesystemAdapter;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -43,7 +43,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Ozdemir\VueFinder\VueFinderBuilder;
-use Ozdemir\VueFinder\Action\VueFinderActionFactory;
+use Ozdemir\VueFinder\Actions\VueFinderActionFactory;
 
 class VueFinderServiceProvider extends ServiceProvider
 {
@@ -71,7 +71,7 @@ class VueFinderServiceProvider extends ServiceProvider
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Ozdemir\VueFinder\Action\VueFinderActionFactory;
+use Ozdemir\VueFinder\Actions\VueFinderActionFactory;
 
 class FilesController extends Controller
 {

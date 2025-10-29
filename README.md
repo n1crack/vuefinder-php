@@ -39,7 +39,7 @@ $vueFinder->init([
 
 ```php
 use Ozdemir\VueFinder\VueFinderBuilder;
-use Ozdemir\VueFinder\Action\VueFinderActionFactory;
+use Ozdemir\VueFinder\Actions\VueFinderActionFactory;
 
 // One-line setup!
 $core = VueFinderBuilder::create(

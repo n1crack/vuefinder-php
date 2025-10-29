@@ -4,12 +4,12 @@ namespace Ozdemir\VueFinder;
 
 use League\Flysystem\Filesystem;
 use League\Flysystem\MountManager;
-use Ozdemir\VueFinder\Action\ActionFactory;
-use Ozdemir\VueFinder\Action\ActionResolver;
-use Ozdemir\VueFinder\Exception\VueFinderException;
-use Ozdemir\VueFinder\Service\FilesystemService;
-use Ozdemir\VueFinder\Service\PathParser;
-use Ozdemir\VueFinder\Service\StorageResolver;
+use Ozdemir\VueFinder\Actions\ActionFactory;
+use Ozdemir\VueFinder\Actions\ActionResolver;
+use Ozdemir\VueFinder\Exceptions\VueFinderException;
+use Ozdemir\VueFinder\Services\FilesystemService;
+use Ozdemir\VueFinder\Services\PathParser;
+use Ozdemir\VueFinder\Services\StorageResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 

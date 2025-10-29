@@ -9,10 +9,10 @@
 require 'vendor/autoload.php';
 
 use Ozdemir\VueFinder\VueFinderCore;
-use Ozdemir\VueFinder\Action\VueFinderActionFactory;
-use Ozdemir\VueFinder\Service\FilesystemService;
-use Ozdemir\VueFinder\Service\PathParser;
-use Ozdemir\VueFinder\Service\StorageResolver;
+use Ozdemir\VueFinder\Actions\VueFinderActionFactory;
+use Ozdemir\VueFinder\Services\FilesystemService;
+use Ozdemir\VueFinder\Services\PathParser;
+use Ozdemir\VueFinder\Services\StorageResolver;
 use League\Flysystem\Filesystem;
 use League\Flysystem\Local\LocalFilesystemAdapter;
 use League\Flysystem\MountManager;
