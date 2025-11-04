@@ -26,7 +26,7 @@ class ListAction extends BaseAction implements ActionInterface
 
         $files = $this->enrichNodes($files, $this->filesystem, $this->pathParser, $this->urlResolver);
 
-        $read_only = false; // TODO: Check if current storage is read-only
+        $read_only = $this->storageResolver->isReadOnly($currentStorageKey);
         $storages = $this->getStorages();
 
         /** @var mixed $responseData */

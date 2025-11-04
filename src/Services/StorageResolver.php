@@ -3,6 +3,7 @@
 namespace Ozdemir\VueFinder\Services;
 
 use League\Flysystem\Filesystem;
+use League\Flysystem\ReadOnly\ReadOnlyFilesystemAdapter;
 use Ozdemir\VueFinder\Contracts\StorageResolverInterface;
 
 /**
@@ -63,6 +64,12 @@ class StorageResolver implements StorageResolverInterface
     public function getAvailableStorages(): array
     {
         return $this->availableStorages;
+    }
+
+
+    public function isReadOnly(string $storageKey): bool
+    {
+        return $this->storageAdapters[$storageKey] instanceof ReadOnlyFilesystemAdapter;
     }
 }
 

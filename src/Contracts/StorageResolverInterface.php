@@ -30,5 +30,13 @@ interface StorageResolverInterface
      * @return array
      */
     public function getAvailableStorages(): array;
+
+    /**
+     * Check if storage is read-only
+     * 
+     * @param string $storageKey
+     * @return bool
+     */
+    public function isReadOnly(string $storageKey): bool;
 }
 
