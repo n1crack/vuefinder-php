@@ -6,6 +6,10 @@ use League\Flysystem\Filesystem;
 use League\Flysystem\MountManager;
 use Ozdemir\VueFinder\Actions\ActionFactory;
 use Ozdemir\VueFinder\Actions\ActionResolver;
+use Ozdemir\VueFinder\Exceptions\FileExistsException;
+use Ozdemir\VueFinder\Exceptions\InvalidMethodException;
+use Ozdemir\VueFinder\Exceptions\PathNotFoundException;
+use Ozdemir\VueFinder\Exceptions\ReadOnlyStorageException;
 use Ozdemir\VueFinder\Exceptions\VueFinderException;
 use Ozdemir\VueFinder\Services\FilesystemService;
 use Ozdemir\VueFinder\Services\PathParser;
@@ -73,12 +77,38 @@ class VueFinder
             $action = $actionResolver->resolve($this->request, $actionFactory);
             $response = $action->execute();
             
+        } catch (PathNotFoundException $e) {
+            // 404 Not Found - Path does not exist
+            $response = new JsonResponse([
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 404);
+        } catch (FileExistsException $e) {
+            // 409 Conflict - File/directory already exists
+            $response = new JsonResponse([
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 409);
+        } catch (InvalidMethodException $e) {
+            // 405 Method Not Allowed - Invalid HTTP method for action
+            $response = new JsonResponse([
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 405);
+        } catch (ReadOnlyStorageException $e) {
+            // 403 Forbidden - Attempting to modify read-only storage
+            $response = new JsonResponse([
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 403);
         } catch (VueFinderException $e) {
+            // 400 Bad Request - Other validation/input errors
             $response = new JsonResponse([
                 'status' => false,
                 'message' => $e->getMessage()
             ], 400);
         } catch (\Exception $e) {
+            // 500 Internal Server Error - Unexpected errors
             $response = new JsonResponse([
                 'status' => false,
                 'message' => $e->getMessage()
