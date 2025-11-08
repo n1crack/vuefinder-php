@@ -39,6 +39,7 @@ class PreviewAction extends BaseAction implements ActionInterface
         $response->headers->set('Access-Control-Allow-Origin', "*");
         $response->headers->set('Access-Control-Allow-Headers', "*");
         $response->headers->set('Content-Length', $size);
+        $response->headers->set('Access-Control-Expose-Headers', "Content-Length, Content-Type, Accept-Ranges, Content-Range");
         $response->headers->set('Content-Type', $mimeType);
         $response->headers->set('Content-Transfer-Encoding', 'binary');
         $response->headers->set('Cache-Control', 'must-revalidate, post-check=0, pre-check=0');
